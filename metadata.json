@@ -1,0 +1,6 @@
+{
+  "name": "AuraClean Studio - Video & Audio Noise Cleaner",
+  "description": "Professional Web Audio & Video DSP workstation supporting large files with background noise reduction, voice isolation, speaker shielding, real-time FFT spectrum, and full-length video and WAV export.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
