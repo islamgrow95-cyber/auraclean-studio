@@ -9,13 +9,18 @@ export function buildFFmpegFilters(dspParams: any, voiceTone: string): string {
 
   // 0. Vocal Focus (center-channel extraction) — keeps centered voice, reduces
   //    stereo-spread background music. Safe no-op on mono/dual-mono sources.
+  //    outL = (0.5+0.5k)*L + (0.5-0.5k)*R, outR = (0.5-0.5k)*L + (0.5+0.5k)*R
+  //    where k = 1 - amount/100 (coefficients pre-combined: pan forbids
+  //    referencing the same input channel twice in one expression).
   if (dspParams.vocalFocus) {
     const amount = typeof dspParams.vocalFocusAmount === 'number'
       ? Math.max(0, Math.min(100, dspParams.vocalFocusAmount))
       : 70;
-    const a = (0.5 * (1 - amount / 100)).toFixed(4);
+    const k = 1 - amount / 100;
+    const cMain = (0.5 + 0.5 * k).toFixed(4);
+    const cSide = (0.5 - 0.5 * k).toFixed(4);
     filters.push(
-      `aformat=channel_layouts=stereo,pan=stereo|c0=0.5*c0+0.5*c1+${a}*c0-${a}*c1|c1=0.5*c0+0.5*c1-${a}*c0+${a}*c1`
+      `aformat=channel_layouts=stereo,pan=stereo|c0=${cMain}*c0+${cSide}*c1|c1=${cSide}*c0+${cMain}*c1`
     );
   }
 
