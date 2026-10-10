@@ -7,6 +7,18 @@
 export function buildFFmpegFilters(dspParams: any, voiceTone: string): string {
   const filters: string[] = [];
 
+  // 0. Vocal Focus (center-channel extraction) — keeps centered voice, reduces
+  //    stereo-spread background music. Safe no-op on mono/dual-mono sources.
+  if (dspParams.vocalFocus) {
+    const amount = typeof dspParams.vocalFocusAmount === 'number'
+      ? Math.max(0, Math.min(100, dspParams.vocalFocusAmount))
+      : 70;
+    const a = (0.5 * (1 - amount / 100)).toFixed(4);
+    filters.push(
+      `aformat=channel_layouts=stereo,pan=stereo|c0=0.5*c0+0.5*c1+${a}*c0-${a}*c1|c1=0.5*c0+0.5*c1-${a}*c0+${a}*c1`
+    );
+  }
+
   // 1. Highpass filter: 70 Hz (protects deep baritone chest voice fundamentals down to 75Hz, cuts sub-rumble)
   const hpFreq = typeof dspParams.hpCutoff === 'number' ? Math.max(50, Math.min(100, dspParams.hpCutoff)) : 70;
   filters.push(`highpass=f=${hpFreq}`);

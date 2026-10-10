@@ -117,6 +117,11 @@ export interface DSPParams {
   preserveIdentity: boolean;
   echoReverbReduction: boolean;
   backgroundVoiceSuppression: boolean;
+
+  // Vocal Focus (center-channel extraction) — keeps centered voice, reduces
+  // stereo-spread background music/nasheeds. Safe no-op on mono sources.
+  vocalFocus: boolean;      // true = enable mid/side vocal focus
+  vocalFocusAmount: number; // 0-100% (higher = more background reduction)
 }
 
 export interface AudioAnalysisReport {

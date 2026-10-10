@@ -15,6 +15,7 @@ import { pitchShiftAudioBuffer } from './pitchShift';
 import { cleanAudioBufferReal, analyzeAudioBuffer } from './voiceIsolator';
 import { spectralDenoiseAudioBuffer } from './spectralDenoise';
 import { deClipAudioBuffer } from './deClip';
+import { createVocalFocus, VocalFocusNodes } from './vocalFocus';
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -59,6 +60,9 @@ export class AudioEngine {
   private compressor: DynamicsCompressorNode | null = null;
   private gateGain: GainNode | null = null;
   private masterGain: GainNode | null = null;
+
+  // Vocal Focus (center-channel extraction) node pair
+  private vocalFocusNode: VocalFocusNodes | null = null;
 
   // Routing Gains for Listening Modes (Cleaned / Original / Delta)
   private wetOutGain: GainNode | null = null;
@@ -411,6 +415,10 @@ export class AudioEngine {
       this.phaseInverter.gain.value = -1.0;
     }
 
+    if (!this.vocalFocusNode) {
+      this.vocalFocusNode = createVocalFocus(this.ctx);
+    }
+
     if (!this.notch50) {
       this.notch50 = this.ctx.createBiquadFilter();
       this.notch50.type = 'peaking';
@@ -577,6 +585,8 @@ export class AudioEngine {
       this.gateGain.disconnect();
       this.analyserProcessed.disconnect();
       this.phaseInverter.disconnect();
+      this.vocalFocusNode?.input.disconnect();
+      this.vocalFocusNode?.output.disconnect();
     } catch {
       // ignore
     }
@@ -592,8 +602,9 @@ export class AudioEngine {
       source.connect(this.analyserOriginal);
       this.analyserOriginal.connect(this.dryOutGain);
 
-      // Pristine Filter Chain: Hum Cut -> Harmonics -> 5-Band EQ -> Bandpass -> De-Esser -> Compressor -> Gate -> Master
-      source.connect(this.notch50);
+      // Pristine Filter Chain: Vocal Focus -> Hum Cut -> Harmonics -> 5-Band EQ -> Bandpass -> De-Esser -> Compressor -> Gate -> Master
+      source.connect(this.vocalFocusNode.input);
+      this.vocalFocusNode.output.connect(this.notch50);
       this.notch50.connect(this.notch100);
       this.notch100.connect(this.notch150);
       this.notch150.connect(this.notch200);
@@ -638,6 +649,19 @@ export class AudioEngine {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     const p = this.currentParams;
+
+    // Vocal Focus (center-channel extraction): keep centered voice, reduce stereo music
+    if (this.vocalFocusNode) {
+      const isMonoSource =
+        this.mode === 'buffer' && this.originalBuffer
+          ? this.originalBuffer.numberOfChannels < 2
+          : false;
+      this.vocalFocusNode.update(
+        p.vocalFocus !== false,
+        typeof p.vocalFocusAmount === 'number' ? p.vocalFocusAmount : 70,
+        isMonoSource
+      );
+    }
 
     const is50HumActive = p.notch50Hz || p.humRemoval50HzHarmonics !== false;
     const is60HumActive = Boolean(p.notch60Hz || p.humRemoval60HzHarmonics);
@@ -1186,8 +1210,15 @@ export class AudioEngine {
       gateGain.gain.value = 1.0;
     }
 
-    // Connect pristine offline DSP graph
-    source.connect(notch50);
+    // Connect pristine offline DSP graph (Vocal Focus first: center voice kept, stereo music reduced)
+    const vfOffline = createVocalFocus(offlineCtx);
+    vfOffline.update(
+      params.vocalFocus !== false,
+      typeof params.vocalFocusAmount === 'number' ? params.vocalFocusAmount : 70,
+      numChannels < 2
+    );
+    source.connect(vfOffline.input);
+    vfOffline.output.connect(notch50);
     notch50.connect(notch100);
     notch100.connect(notch150);
     notch150.connect(notch200);

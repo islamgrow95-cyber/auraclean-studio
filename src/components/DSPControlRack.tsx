@@ -402,6 +402,56 @@ export const DSPControlRack: React.FC<DSPControlRackProps> = ({
         </div>
       </div>
 
+      {/* Panel 5: Vocal Focus (Center-Channel Extraction) */}
+      <div className="bg-[#0f172a]/75 border border-emerald-500/40 rounded-2xl p-4 space-y-4 shadow-xl shadow-emerald-500/10 flex flex-col justify-between">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Mic2 className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-semibold text-slate-200">Vocal Focus</h3>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={params.vocalFocus !== false}
+              onChange={(e) => onChange({ vocalFocus: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-8 h-4.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+
+        <div className="space-y-3.5 flex-1">
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Center mein boli gayi awaz (bayan) rakhta hai, sides par phaili hui background music ko kam karta hai. Mono recordings par koi asar nahi.
+          </p>
+
+          {/* Background Reduction Amount */}
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-slate-400">Background Music Reduction</span>
+              <span className="font-mono tabular-nums text-emerald-400">{params.vocalFocusAmount ?? 70}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="95"
+              step="5"
+              value={params.vocalFocusAmount ?? 70}
+              disabled={params.vocalFocus === false}
+              onChange={(e) => onChange({ vocalFocusAmount: parseInt(e.target.value) })}
+              className="w-full disabled:opacity-40"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">Status:</span>
+            <span className={`font-mono ${params.vocalFocus !== false ? 'text-emerald-400' : 'text-slate-500'}`}>
+              {params.vocalFocus !== false ? 'Voice isolated from music' : 'Off — full stereo mix'}
+            </span>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };
