@@ -21,6 +21,7 @@ import {
   playStudioChimeAndVoice,
 } from '../audio/audioUtils';
 import { uploadAndProcessMedia } from '../audio/serverExportClient';
+import { exportWithBrowserEngine } from '../audio/clientExportEngine';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -96,6 +97,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     prevIsOpenRef.current = isOpen;
   }, [isOpen, sourceFileName, engine, isSourceVideo]);
 
+  const triggerBrowserDownload = (url: string, fileName: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const handleExport = async () => {
     setIsRendering(true);
     setRenderProgress(10);
@@ -114,35 +124,98 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       // 1. If original file is available (large audio or 30-min to 1-hour video), use High-Speed Studio Chunked FFmpeg Engine
       // This completely solves Cloud Run / proxy 413 (Payload Too Large) by uploading safe 8MB chunks
       if (activeFile) {
-        setRenderProgress(10);
-        setStatusMessage('Media session prepare ho raha hai...');
+        let serverWorked = false;
+        try {
+          setRenderProgress(10);
+          setStatusMessage('Media session prepare ho raha hai...');
 
-        const result = await uploadAndProcessMedia({
-          file: activeFile,
-          exportType,
-          exportFormat: exportType === 'video' ? 'mp4' : audioFormat,
-          voiceTone: exportFlavor,
-          dspParams: { ...engine.getDSPParams(), ...customParams },
-          bitDepth,
-          exportName,
-          onProgress: (pct, stage) => {
-            setRenderProgress(pct);
-            setStatusMessage(stage);
-          },
-        });
+          const result = await uploadAndProcessMedia({
+            file: activeFile,
+            exportType,
+            exportFormat: exportType === 'video' ? 'mp4' : audioFormat,
+            voiceTone: exportFlavor,
+            dspParams: { ...engine.getDSPParams(), ...customParams },
+            bitDepth,
+            exportName,
+            onProgress: (pct, stage) => {
+              setRenderProgress(pct);
+              setStatusMessage(stage);
+            },
+          });
 
-        setExportedFileType(exportType);
-        setDownloadResultUrl(result.downloadUrl);
-        setRenderProgress(100);
-        setIsRendering(false);
-        setIsExported(true);
-        playStudioChimeAndVoice(
-          engine.getContext(),
-          exportType === 'video'
-            ? 'Aap ki mukammal video aur aawaz clean ho kar download ho chuki hai!'
-            : 'Aap ki aawaz mukammal clean ho kar download ho chuki hai!'
-        );
-        return;
+          setExportedFileType(exportType);
+          setDownloadResultUrl(result.downloadUrl);
+          setRenderProgress(100);
+          setIsRendering(false);
+          setIsExported(true);
+          playStudioChimeAndVoice(
+            engine.getContext(),
+            exportType === 'video'
+              ? 'Aap ki mukammal video aur aawaz clean ho kar download ho chuki hai!'
+              : 'Aap ki aawaz mukammal clean ho kar download ho chuki hai!'
+          );
+          serverWorked = true;
+          return;
+        } catch (serverErr: any) {
+          const msg = String(serverErr?.message || '');
+          // 405/404/Network failure = no backend on this deployment (static hosting).
+          // Fall through to the on-device studio engine instead of showing an error.
+          const noBackend = /405|Failed to fetch|NetworkError|Load failed|Network request failed|fetch failed/i.test(msg);
+          if (!noBackend) throw serverErr;
+          setStatusMessage('Server maujood nahi — export aap ke device par hi ho raha hai...');
+        }
+
+        if (!serverWorked) {
+          // 1b. ON-DEVICE FALLBACK: same studio DSP chain via in-browser FFmpeg engine.
+          // Works fully offline after first load, no upload needed.
+          const smallAudioNoVideo =
+            !isSourceVideo && activeFile.size <= 15 * 1024 * 1024;
+          const useWebAudioRender =
+            smallAudioNoVideo && exportType === 'audio' && audioFormat === 'wav';
+
+          if (useWebAudioRender) {
+            // Premium Web-Audio render path (voice isolation) for small WAV exports
+            setStatusMessage('Device par studio render ho raha hai...');
+            const renderedBuffer = await engine.renderProcessedBuffer(customParams);
+            setRenderProgress(70);
+            const wavBlob = audioBufferToWav(renderedBuffer, bitDepth);
+            const url = URL.createObjectURL(wavBlob);
+            const outName = exportName.endsWith('.wav') ? exportName : `${exportName}.wav`;
+            triggerBrowserDownload(url, outName);
+            setExportedFileType('audio');
+            setDownloadResultUrl(url);
+            setRenderProgress(100);
+          } else {
+            // Universal path: video files, large files, and MP3 — via in-browser FFmpeg
+            const result = await exportWithBrowserEngine({
+              file: activeFile,
+              exportType,
+              exportFormat: exportType === 'video' ? 'mp4' : audioFormat,
+              voiceTone: exportFlavor,
+              dspParams: { ...engine.getDSPParams(), ...customParams },
+              bitDepth,
+              exportName,
+              onProgress: (pct, stage) => {
+                setRenderProgress(pct);
+                setStatusMessage(stage);
+              },
+            });
+            triggerBrowserDownload(result.blobUrl, result.fileName);
+            setExportedFileType(exportType);
+            setDownloadResultUrl(result.blobUrl);
+            setRenderProgress(100);
+          }
+
+          setIsRendering(false);
+          setIsExported(true);
+          playStudioChimeAndVoice(
+            engine.getContext(),
+            exportType === 'video'
+              ? 'Aap ki mukammal video aur aawaz clean ho kar download ho chuki hai!'
+              : 'Aap ki aawaz mukammal clean ho kar download ho chuki hai!'
+          );
+          return;
+        }
       }
 
       // 2. Client-side rendering fallback for recorded audio buffers or synthetic samples
