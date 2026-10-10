@@ -193,6 +193,38 @@ export const AdvancedManualControls: React.FC<AdvancedManualControlsProps> = ({
             />
           </div>
 
+          {/* Vocal Focus: center-channel extraction (keeps bayan voice, reduces stereo music) */}
+          <div className="space-y-1 pt-1 border-t border-cyan-500/20">
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span className="font-semibold text-cyan-300">Vocal Focus (music kam):</span>
+              <button
+                type="button"
+                onClick={() => onChange({ vocalFocus: params.vocalFocus === false })}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all ${
+                  params.vocalFocus !== false
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700'
+                }`}
+              >
+                {params.vocalFocus !== false ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Background music reduction:</span>
+              <span className="font-mono font-bold text-cyan-400">{params.vocalFocusAmount ?? 70}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="95"
+              step="5"
+              value={params.vocalFocusAmount ?? 70}
+              disabled={params.vocalFocus === false}
+              onChange={(e) => onChange({ vocalFocusAmount: parseInt(e.target.value) })}
+              className="w-full accent-cyan-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer disabled:opacity-40"
+            />
+          </div>
+
           {/* Clarity 0-100% */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs text-slate-300">
@@ -568,6 +600,41 @@ export const AdvancedManualControls: React.FC<AdvancedManualControlsProps> = ({
               onChange={(e) => onChange({ gateThreshold: parseInt(e.target.value), gateEnabled: true })}
               className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
             />
+          </div>
+
+          {/* Fori Safai (Live): real-time noise + gunj reducer for large/streaming files */}
+          <div className="space-y-1 pt-2 border-t border-emerald-500/20">
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span className="font-semibold text-emerald-300">Fori Safai — shor + gunj kam:</span>
+              <button
+                type="button"
+                onClick={() => onChange({ liveCleanup: params.liveCleanup === false })}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all ${
+                  params.liveCleanup !== false
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700'
+                }`}
+              >
+                {params.liveCleanup !== false ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Safai ki miqdar:</span>
+              <span className="font-mono font-bold text-emerald-400">{params.liveCleanupAmount ?? 70}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={params.liveCleanupAmount ?? 70}
+              disabled={params.liveCleanup === false}
+              onChange={(e) => onChange({ liveCleanupAmount: parseInt(e.target.value) })}
+              className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer disabled:opacity-40"
+            />
+            <p className="text-[10px] text-slate-500 leading-snug">
+              Bari bayan files par foran asar — bolne ke darmiyan shor aur gunj dab jayegi.
+            </p>
           </div>
 
           {/* Master Output Gain */}
