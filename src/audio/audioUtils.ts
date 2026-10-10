@@ -176,6 +176,8 @@ export const DEFAULT_DSP_PARAMS: DSPParams = {
   backgroundVoiceSuppression: true,
   vocalFocus: true,
   vocalFocusAmount: 70,
+  liveCleanup: true,
+  liveCleanupAmount: 70,
 };
 
 export const PROCESSING_MODES: Record<ProcessingMode, { name: string; tag: string; description: string; params: Partial<DSPParams> }> = {

@@ -19,6 +19,16 @@ export function buildFFmpegFilters(dspParams: any, voiceTone: string): string {
     );
   }
 
+  // 0b. Spectral noise reduction for large-file/streaming exports (FFmpeg's
+  //     native FFT denoiser). This is the export-side counterpart of the
+  //     Web-Audio spectral subtraction used for small files.
+  const nrPercent =
+    typeof dspParams.noiseReductionPercent === 'number' ? dspParams.noiseReductionPercent : 88;
+  if (nrPercent > 0) {
+    const nrDb = (6 + (Math.min(100, Math.max(0, nrPercent)) / 100) * 12).toFixed(1);
+    filters.push(`afftdn=nr=${nrDb}:nf=-25:tn=1`);
+  }
+
   // 1. Highpass filter: 70 Hz (protects deep baritone chest voice fundamentals down to 75Hz, cuts sub-rumble)
   const hpFreq = typeof dspParams.hpCutoff === 'number' ? Math.max(50, Math.min(100, dspParams.hpCutoff)) : 70;
   filters.push(`highpass=f=${hpFreq}`);

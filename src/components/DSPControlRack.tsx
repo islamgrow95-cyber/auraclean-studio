@@ -106,6 +106,39 @@ export const DSPControlRack: React.FC<DSPControlRackProps> = ({
               />
             </div>
           </div>
+
+          {/* Live Cleanup: real-time noise + gunj (reverb) reducer */}
+          <div className="pt-3 border-t border-emerald-500/30">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-slate-300">Fori Safai (Live)</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={params.liveCleanup !== false}
+                  onChange={(e) => onChange({ liveCleanup: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-4.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed mb-2">
+              Bari files par foran shor aur gunj kam kare — bolne ke darmiyan ki khamoshi mein safai sunai degi.
+            </p>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-slate-400">Safai ki miqdar</span>
+              <span className="font-mono tabular-nums text-emerald-400">{params.liveCleanupAmount ?? 70}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={params.liveCleanupAmount ?? 70}
+              disabled={params.liveCleanup === false}
+              onChange={(e) => onChange({ liveCleanupAmount: parseInt(e.target.value) })}
+              className="w-full disabled:opacity-40"
+            />
+          </div>
         </div>
       </div>
 

@@ -16,6 +16,7 @@ import { cleanAudioBufferReal, analyzeAudioBuffer } from './voiceIsolator';
 import { spectralDenoiseAudioBuffer } from './spectralDenoise';
 import { deClipAudioBuffer } from './deClip';
 import { createVocalFocus, VocalFocusNodes } from './vocalFocus';
+import { createLiveExpander, LiveExpander } from './liveExpander';
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -63,6 +64,9 @@ export class AudioEngine {
 
   // Vocal Focus (center-channel extraction) node pair
   private vocalFocusNode: VocalFocusNodes | null = null;
+
+  // Live Cleanup (multiband downward expander) for real-time noise + reverb reduction
+  private liveExpander: LiveExpander | null = null;
 
   // Routing Gains for Listening Modes (Cleaned / Original / Delta)
   private wetOutGain: GainNode | null = null;
@@ -419,6 +423,10 @@ export class AudioEngine {
       this.vocalFocusNode = createVocalFocus(this.ctx);
     }
 
+    if (!this.liveExpander) {
+      this.liveExpander = createLiveExpander(this.ctx);
+    }
+
     if (!this.notch50) {
       this.notch50 = this.ctx.createBiquadFilter();
       this.notch50.type = 'peaking';
@@ -587,6 +595,8 @@ export class AudioEngine {
       this.phaseInverter.disconnect();
       this.vocalFocusNode?.input.disconnect();
       this.vocalFocusNode?.output.disconnect();
+      this.liveExpander?.input.disconnect();
+      this.liveExpander?.output.disconnect();
     } catch {
       // ignore
     }
@@ -602,9 +612,10 @@ export class AudioEngine {
       source.connect(this.analyserOriginal);
       this.analyserOriginal.connect(this.dryOutGain);
 
-      // Pristine Filter Chain: Vocal Focus -> Hum Cut -> Harmonics -> 5-Band EQ -> Bandpass -> De-Esser -> Compressor -> Gate -> Master
+      // Pristine Filter Chain: Vocal Focus -> Live Cleanup (noise+gunj) -> Hum Cut -> Harmonics -> 5-Band EQ -> Bandpass -> De-Esser -> Compressor -> Gate -> Master
       source.connect(this.vocalFocusNode.input);
-      this.vocalFocusNode.output.connect(this.notch50);
+      this.vocalFocusNode.output.connect(this.liveExpander.input);
+      this.liveExpander.output.connect(this.notch50);
       this.notch50.connect(this.notch100);
       this.notch100.connect(this.notch150);
       this.notch150.connect(this.notch200);
@@ -953,6 +964,21 @@ export class AudioEngine {
 
     this.gateIntervalId = window.setInterval(() => {
       if (!this.isPlaying || !this.analyserOriginal || !this.gateGain || !this.ctx) return;
+
+      // Live Cleanup: multiband expander for real-time noise + reverb-tail (gunj) reduction.
+      // Runs independently of the gate toggle so streaming files get audible cleaning.
+      if (this.liveExpander) {
+        try {
+          this.liveExpander.update(
+            this.currentParams.liveCleanup !== false,
+            typeof this.currentParams.liveCleanupAmount === 'number'
+              ? this.currentParams.liveCleanupAmount
+              : 70
+          );
+        } catch {
+          /* envelope follower must never break playback */
+        }
+      }
 
       if (!this.currentParams.gateEnabled) {
         this.gateGain.gain.setValueAtTime(1.0, this.ctx.currentTime);

@@ -122,6 +122,11 @@ export interface DSPParams {
   // stereo-spread background music/nasheeds. Safe no-op on mono sources.
   vocalFocus: boolean;      // true = enable mid/side vocal focus
   vocalFocusAmount: number; // 0-100% (higher = more background reduction)
+
+  // Live Cleanup (multiband downward expander) — real-time noise + reverb-tail
+  // reduction for the live preview chain, incl. large/streaming files.
+  liveCleanup: boolean;      // true = enable
+  liveCleanupAmount: number; // 0-100% (scales max reduction, default 70)
 }
 
 export interface AudioAnalysisReport {
